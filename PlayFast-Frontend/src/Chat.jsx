@@ -1,9 +1,11 @@
+/* eslint-disable react/jsx-key */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-unused-vars */
 import { useContext, useEffect, useState } from "react";
 import { UserContext } from "./UserContext";
 import Avatar from "./Avatar";
 import Logo from "./Logo";
+import {uniqBy} from 'lodash'
 
 export default function Chat() {
 
@@ -41,27 +43,35 @@ export default function Chat() {
       showOnlinePeople(messageData.online)
     } else {
       console.log(messageData)
-      setMessages(prev => ([...prev, {isOur: false, text: messageData.text}]))
+      setMessages(prev => ([...prev, {...messageData}]))
     }
   }
 
   function sendMessage(ev) {
     ev.preventDefault()
-    console.log("im trying to send this msg : ", newMessageText)
+    console.log("im trying to send this msg to the backend server: ", newMessageText)
+    
     ws.send(JSON.stringify({
         recipient: selectedUserId,
         text: newMessageText
     }))
+
     setNewMessageText('')
     console.log("message sent to the server")
-    setMessages(prev => ([...prev, {text: newMessageText, isOur: true}]))
+    setMessages(prev => ([...prev, 
+      {text: newMessageText,
+       sender: id, 
+       recipient: selectedUserId,
+       _id: Date.now()
+      }]))
   }
 
   const onlineExceptMe = {...onlinePeople}
   delete onlineExceptMe[id]
 
 
-  
+  const messagesWithoutDupes = uniqBy(messages, '_id');
+  console.log(messagesWithoutDupes)
 
   //the structure of the chat page
   return (
@@ -93,19 +103,25 @@ export default function Chat() {
 
 
       {/* //Chatting with the selected person */}
-      <div className="flex flex-col bg-blue-100 w-2/3 p-2">
-        
+      <div className="flex flex-col bg-blue-50 w-2/3 p-2">
         <div className="flex-grow">
           {!selectedUserId && (
             <div className="flex h-full flex-grow items-center justify-center">
-              <div className="text-gray-600">&larr; Select a Person from the Available List</div>
+              <div className="text-gray-300">&larr; Select a person from the sidebar</div>
             </div>
           )}
-          {selectedUserId && (
-            <div>
-              {messages.map(message => (
-                <div> {message.text} </div>
-              ))}
+          {!!selectedUserId && (
+            <div className="relative h-full">
+              <div className="overflow-y-scroll absolute top-0 left-0 right-0 bottom-2">
+                {messagesWithoutDupes.map(message => (
+                  <div key={message._id} className={(message.sender === id ? 'text-right': 'text-left')}>
+                    <div className={"text-left inline-block p-2 my-2 rounded-md text-sm " +(message.sender === id ? 'bg-blue-500 text-white':'bg-white text-gray-500')}>
+                      {message.text}
+                      
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -213,7 +213,7 @@ wss.on('connection', (connection, req) => {
         if (recipient && (text)) {
 
           const messageDoc = await Message.create({
-            sender:connection.userId,
+            sender: connection.userId,
             recipient,
             text,
           })
