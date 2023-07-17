@@ -1,6 +1,7 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const User = require("./models/User");
+const Message = require("./models/Message")
 const jwt = require("jsonwebtoken");
 const bcrypt = require('bcryptjs')
 const cors = require('cors')
@@ -194,6 +195,45 @@ wss.on('connection', (connection, req) => {
         }
     }
 
+    connection.on('message', async (message) => {
+        const messageData = JSON.parse(message.toString());
+        const {recipient, text} = messageData;
+        // let filename = null;
+        // if (file) {
+        //   console.log('size', file.data.length);
+        //   const parts = file.name.split('.');
+        //   const ext = parts[parts.length - 1];
+        //   filename = Date.now() + '.'+ext;
+        //   const path = __dirname + '/uploads/' + filename;
+        //   const bufferData = new Buffer(file.data.split(',')[1], 'base64');
+        //   fs.writeFile(path, bufferData, () => {
+        //     console.log('file saved:'+path);
+        //   });
+        // }
+        if (recipient && (text)) {
+
+          const messageDoc = await Message.create({
+            sender:connection.userId,
+            recipient,
+            text,
+          })
+
+          console.log('created message');
+          console.log(messageDoc);
+
+          [...wss.clients]
+            .filter(c => c.userId === recipient)
+            .forEach(c => c.send(JSON.stringify({
+              text,
+              sender:connection.userId,
+              recipient,
+              _id:messageDoc._id,
+            })));
+        }
+      });
+
+
+    //notify people about the total online clients
     [...wss.clients].forEach(client => {
         client.send(JSON.stringify({
             online: [...wss.clients].map(c => ({userId: c.userId, username: c.username}))
