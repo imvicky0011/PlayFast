@@ -6,6 +6,7 @@ import { UserContext } from "./UserContext";
 import Avatar from "./Avatar";
 import Logo from "./Logo";
 import {uniqBy} from 'lodash'
+import axios from 'axios'
 
 export default function Chat() {
 
@@ -17,22 +18,39 @@ export default function Chat() {
   const {username, id, setId, setUsername} = useContext(UserContext)
   const divUnderMessages = useRef();
 
-  console.log("ENTIRE CHAT COMP RERENDERED")
-  console.log(messages)
-
-  useEffect(() => {
+  function connectToWs() {
     const ws = new WebSocket('ws://localhost:4040')
     setWs(ws)
+    
     ws.addEventListener('message', handleMesage)
-  }, [])
+    ws.addEventListener('close', () => {
+      console.log("Trying to reconnect...")  
+      setTimeout(() => {
+        connectToWs()
+      }, 1000)
+    })
+  }
 
+
+  useEffect(() => {
+  
+    connectToWs()
+  
+    }, [])
+
+  useEffect(() => {
+    if(selectedUserId) {
+      axios.get('/messages/' + selectedUserId)
+           .then()
+    }
+  }, [selectedUserId])
 
   useEffect(() => {
     const div = divUnderMessages.current
     if(div) {
       div.scrollIntoView({behavior: 'smooth', block: 'end'})
     }
-  }, [messages])
+  }, [messages]) 
 
 
   function showOnlinePeople(peopleArray) {
