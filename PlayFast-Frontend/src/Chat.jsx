@@ -114,12 +114,14 @@ export default function Chat() {
   }
 
   
-  function logout() {
-    axios.post('/logout').then(() => {
+  async function logout() {
+    await axios.post('/logout').then(() => {
       setWs(null);
       setId(null);
       setUsername(null);
-    });
+    })
+
+    window.location.reload()
   }
   
 
