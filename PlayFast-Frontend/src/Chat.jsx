@@ -41,7 +41,9 @@ export default function Chat() {
   useEffect(() => {
     if(selectedUserId) {
       axios.get('/messages/' + selectedUserId)
-           .then()
+           .then(res => {
+              setMessages(res.data)
+           })
     }
   }, [selectedUserId])
 
