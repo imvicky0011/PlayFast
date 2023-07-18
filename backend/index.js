@@ -58,7 +58,13 @@ app.get('/messages/:userId', async (req,res) => {
       recipient:{$in:[userId,ourUserId]},
     }).sort({createdAt: 1});
     res.json(messages);
-  });
+});
+
+
+app.get('/people', async (req,res) => {
+    const users = await User.find({}, {'_id':1,username:1});
+    res.json(users);
+});
 
 
 app.get("/", (req, res) => {
@@ -83,6 +89,10 @@ app.get('/profile', (req, res) => {
     }
 });
   
+app.post('/logout', (req,res) => {
+    res.cookie('token', '', {sameSite:'none', secure:true}).json('ok');
+})
+
 
 app.post('/login', async (req,res) => {
     const {username, password} = req.body;
@@ -135,8 +145,6 @@ app.post("/register", async (req, res) => {
   //i am extracting the body out of the request headers
   const { username, password } = req.body
   
-  //console log just to debug
-  console.log(req.body)
 
   try {
 
@@ -199,6 +207,33 @@ const server = app.listen(4040, () => console.log("Server running on the port 40
 const wss = new ws.WebSocketServer({server})
 
 wss.on('connection', (connection, req) => {
+
+    function notifyAboutOnlinePeople() {
+        [...wss.clients].forEach(client => {
+          client.send(JSON.stringify({
+            online: [...wss.clients].map(c => ({userId:c.userId,username:c.username})),
+          }));
+        });
+    }
+
+    connection.isAlive = true;
+
+    connection.timer = setInterval(() => {
+      connection.ping();
+      connection.deathTimer = setTimeout(() => {
+        console.log(connection.username + " here i am here")
+        connection.isAlive = false;
+        clearInterval(connection.timer);
+        connection.terminate();
+        notifyAboutOnlinePeople();
+        console.log('dead');
+      }, 1000);
+    }, 5000);
+  
+    connection.on('pong', () => {
+      clearTimeout(connection.deathTimer);
+    });
+
     const cookies = req.headers.cookie
 
     if(cookies) {
@@ -208,13 +243,12 @@ wss.on('connection', (connection, req) => {
             const token = tokenCookieString.split('=')[1]
     
             if(token) {
-                console.log("token received from the websocket connection")
                 jwt.verify(token, jwtSecret, {expiresIn: 360000}, (err, userData) => {
                     if(err) throw err
                     const {userId, username} = userData
-                    console.log(userData)
                     connection.userId = userId
                     connection.username = username
+                    console.log(username)
                 })
             }
         }
@@ -244,7 +278,6 @@ wss.on('connection', (connection, req) => {
           })
 
           console.log('created message');
-          console.log(messageDoc);
 
           [...wss.clients]
             .filter(c => c.userId === recipient)
@@ -258,10 +291,5 @@ wss.on('connection', (connection, req) => {
       });
 
 
-    //notify people about the total online clients
-    [...wss.clients].forEach(client => {
-        client.send(JSON.stringify({
-            online: [...wss.clients].map(c => ({userId: c.userId, username: c.username}))
-        }))
-    })
+    notifyAboutOnlinePeople();
 })

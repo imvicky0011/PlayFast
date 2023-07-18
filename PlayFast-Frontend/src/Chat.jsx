@@ -7,6 +7,7 @@ import Avatar from "./Avatar";
 import Logo from "./Logo";
 import {uniqBy} from 'lodash'
 import axios from 'axios'
+import Contact from './Contact'
 
 export default function Chat() {
 
@@ -16,7 +17,9 @@ export default function Chat() {
   const [newMessageText, setNewMessageText] = useState('')
   const [messages, setMessages] = useState([])
   const {username, id, setId, setUsername} = useContext(UserContext)
+  const [offlinePeople,setOfflinePeople] = useState({});
   const divUnderMessages = useRef();
+
 
   function connectToWs() {
     const ws = new WebSocket('ws://localhost:4040')
@@ -55,6 +58,20 @@ export default function Chat() {
   }, [messages]) 
 
 
+  useEffect(() => {
+    axios.get('/people').then(res => {
+      const offlinePeopleArr = res.data
+        .filter(p => p._id !== id)
+        .filter(p => !Object.keys(onlinePeople).includes(p._id));
+      const offlinePeople = {};
+      offlinePeopleArr.forEach(p => {
+        offlinePeople[p._id] = p;
+      });
+      setOfflinePeople(offlinePeople);
+    });
+  }, [onlinePeople]);
+
+
   function showOnlinePeople(peopleArray) {
     const people = {}
 
@@ -72,7 +89,9 @@ export default function Chat() {
       showOnlinePeople(messageData.online)
     } else {
       console.log(messageData)
-      setMessages(prev => ([...prev, {...messageData}]))
+      if(messageData.sender === selectedUserId) {
+        setMessages(prev => ([...prev, {...messageData}]))
+      }
     }
   }
 
@@ -86,7 +105,6 @@ export default function Chat() {
     }))
 
     setNewMessageText('')
-    console.log("message sent to the server")
     setMessages(prev => ([...prev, 
       {text: newMessageText,
        sender: id, 
@@ -95,40 +113,58 @@ export default function Chat() {
       }]))
   }
 
+  
+  function logout() {
+    axios.post('/logout').then(() => {
+      setWs(null);
+      setId(null);
+      setUsername(null);
+    });
+  }
+  
+
   const onlineExceptMe = {...onlinePeople}
   delete onlineExceptMe[id]
-
-
+  
   const messagesWithoutDupes = uniqBy(messages, '_id');
-  console.log(messagesWithoutDupes)
 
   //the structure of the chat page
   return (
     <div className="flex h-screen">
-      
-      <div className="bg-white w-1/3 pl-4 pt-4">
-        
-        <Logo/>
-
-        {Object.keys(onlineExceptMe).map(userId => (
-          <div
-            onClick={() => setSelectedUserId(userId)}
-            key = {userId} 
-            className={"border-b border-gray-100 flex items-center gap-3 cursor-pointer " + (userId === selectedUserId ? 'bg-blue-100' : '')} 
-          > 
-            {userId === selectedUserId && (
-              <div className="w-1 bg-blue-500 h-12 rounded-r-md"></div>
-            )}
-
-            <div className="flex gap-2 py-2 pl-4 items-center">
-            <Avatar username = {onlinePeople[userId]} userId = {userId} />
-            <span className="text-gray-800"> { onlinePeople[userId] } </span> 
-            </div>
-          </div>
-        ))}
-
+      <div className="bg-white w-1/3 flex flex-col">
+        <div className="flex-grow h-100vh overflow-y-auto">
+          <Logo />
+          {Object.keys(onlineExceptMe).map(userId => (
+            <Contact
+              key={userId}
+              id={userId}
+              online={true}
+              username={onlineExceptMe[userId]}
+              onClick={() => {setSelectedUserId(userId);console.log({userId})}}
+              selected={userId === selectedUserId} />
+          ))}
+          {Object.keys(offlinePeople).map(userId => (
+            <Contact
+              key={userId}
+              id={userId}
+              online={false}
+              username={offlinePeople[userId].username}
+              onClick={() => setSelectedUserId(userId)}
+              selected={userId === selectedUserId} />
+          ))}
+        </div>
+        <div className="p-2 text-center flex items-center justify-between">
+          <span className="ml-4 text-sm text-gray-600 flex items-center ">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+              <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+            </svg>
+            {username}
+          </span>
+          <button
+            onClick={logout}
+            className="mr-10 text-sm bg-blue-100 py-1 px-2 text-gray-500 border rounded-sm">logout</button>
+        </div>
       </div>
-
 
 
       {/* //Chatting with the selected person */}
