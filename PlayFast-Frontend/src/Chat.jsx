@@ -39,7 +39,7 @@ export default function Chat() {
   
     connectToWs()
   
-    }, [])
+    }, [selectedUserId])
 
   useEffect(() => {
     if(selectedUserId) {
@@ -217,4 +217,3 @@ export default function Chat() {
     </div>
   );
 }
-

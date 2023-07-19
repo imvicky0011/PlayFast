@@ -220,6 +220,7 @@ wss.on('connection', (connection, req) => {
 
     connection.timer = setInterval(() => {
       connection.ping();
+      console.log("Sending ping, waiting for pong")
       connection.deathTimer = setTimeout(() => {
         console.log(connection.username + " here i am here")
         connection.isAlive = false;
